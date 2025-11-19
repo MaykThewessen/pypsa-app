@@ -1,0 +1,94 @@
+# Data
+data
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.dev-server
+
+# Compose
+compose.dev-server.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# Agents
+.claude
+AGENTS.md
+.mcp.json
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Testing
+.coverage
+.pytest_cache/
+htmlcov/
+
+# Docker
+.dockerignore
+compose/compose.prod.yaml
+compose/.env
+
+# Alembic
+alembic/versions/*.pyc
+
+# Frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Frontend build outputs
+frontend/app/build/
+frontend/app/.svelte-kit/
+frontend/map/dist/
+
+# Vite cache
+.vite/
+frontend/.vite/
+
+# Backend static files
+src/pypsa_app/backend/static/app/
+src/pypsa_app/backend/static/map/

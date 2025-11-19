@@ -1,0 +1,12 @@
+# Minimal setup - pypsa-app (no postgres/redis/celery)
+# Similar to pypi packaged version
+
+services:
+  pypsa-app:
+    image: ghcr.io/pypsa/pypsa-app:latest
+    container_name: pypsa-app
+    ports:
+      - 8000:8000
+    volumes:
+      - ../data:/data
+    restart: unless-stopped

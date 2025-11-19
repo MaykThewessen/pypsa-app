@@ -1,0 +1,88 @@
+# Full setup - serves app backend and frontend with services (postgres/redis/celery)
+# IMPORTANT: Copy .env.example to .env and configure before use
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: pypsa-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    # Uncomment for access Postgres on host machine
+    # ports:
+    #   - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:8-alpine
+    container_name: pypsa-redis
+    restart: unless-stopped
+    # Uncomment to access Redis from host machine
+    # ports:
+    #   - 6379:6379
+    command: redis-server --maxmemory ${REDIS_MAXMEMORY:-2gb} --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  pypsa-app:
+    image: ghcr.io/pypsa/pypsa-app:latest
+    container_name: pypsa-app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB}
+      - REDIS_URL=redis://redis:6379/0
+      # Authentication
+      - ENABLE_AUTH=${ENABLE_AUTH}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
+      - SESSION_SECRET_KEY=${SESSION_SECRET_KEY}
+      - SESSION_COOKIE_NAME=${SESSION_COOKIE_NAME}
+      - SESSION_TTL=${SESSION_TTL:-604800}
+      - BASE_URL=${BASE_URL}
+    volumes:
+      - ../data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery-worker:
+    image: ghcr.io/pypsa/pypsa-app:latest
+    container_name: pypsa-celery-worker
+    restart: unless-stopped
+    command:
+      [
+        "celery",
+        "-A",
+        "pypsa_app.backend.celery_app",
+        "worker",
+        "--loglevel=${CELERY_LOGLEVEL:-info}",
+        "--concurrency=${CELERY_CONCURRENCY:-4}",
+      ]
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB}
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ../data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
