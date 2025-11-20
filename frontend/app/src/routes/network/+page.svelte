@@ -749,6 +749,23 @@ async function loadPlot(statistic, plotType, parameters = {}) {
 					return;
 				}
 
+				// Validate plot data exists
+				if (!response.plot_data || !response.plot_data.data) {
+					console.error('Invalid plot data, aborting render');
+					error = 'Plot data is missing or invalid';
+					return;
+				}
+
+				// Cleanup existing plot if any (prevents memory leaks and rendering conflicts)
+				if (plotDiv._plotly) {
+					console.log('Cleaning up existing Plotly instance');
+					try {
+						Plotly.purge(plotDiv);
+					} catch (purgeErr) {
+						console.warn('Plotly.purge warning:', purgeErr);
+					}
+				}
+
 				// Ensure layout uses full width - don't set explicit width, use autosize
 				const layout = {
 					...response.plot_data.layout,
@@ -760,6 +777,12 @@ async function loadPlot(statistic, plotType, parameters = {}) {
 
 				console.log('Calling Plotly.newPlot...');
 				try {
+					// Final guard: verify element still valid and request not superseded
+					if (!plotDiv || !document.body.contains(plotDiv) || currentRequestId !== plotRequestId || !componentMounted) {
+						console.log('Pre-render validation failed, aborting');
+						return;
+					}
+
 					// response.plot_data is the full Plotly figure JSON
 					Plotly.newPlot(plotDiv, response.plot_data.data, layout, {
 						responsive: true,
@@ -1292,7 +1315,7 @@ async function loadPlot(statistic, plotType, parameters = {}) {
 							<div class="font-semibold mb-2">Error:</div>
 							<pre class="whitespace-pre-wrap text-sm font-mono overflow-x-auto">{error}</pre>
 						</div>
-					{:else if plotData}
+					{:else if plotData?.plot_data || plotData?.multiplePlots}
 						<div class="w-full space-y-6">
 							{#if plotData.cache_hit}
 								<div class="flex justify-end mb-2">
@@ -1313,10 +1336,19 @@ async function loadPlot(statistic, plotType, parameters = {}) {
 									</div>
 								{/each}
 							{:else}
-								<div class="w-full rounded-lg border-2 border-border/50 shadow-md overflow-hidden bg-white h-[500px]">
-									<div bind:this={plotDiv} class="w-full h-full"></div>
-								</div>
+								{#key plotData.statistic + plotData.plotType + (plotData.cache_hit || '')}
+									<div class="w-full rounded-lg border-2 border-border/50 shadow-md overflow-hidden bg-white h-[500px]">
+										<div bind:this={plotDiv} class="w-full h-full"></div>
+									</div>
+								{/key}
 							{/if}
+						</div>
+					{:else if plotData && !plotData.plot_data && !plotData.multiplePlots}
+						<div class="text-center py-12">
+							<div class="bg-yellow-50 border border-yellow-300 text-yellow-800 px-4 py-3 rounded-lg inline-block">
+								<div class="font-semibold mb-2">Invalid Plot Data</div>
+								<p class="text-sm">The plot data received is incomplete or invalid.</p>
+							</div>
 						</div>
 					{:else}
 						<div class="text-center py-12">
@@ -1665,7 +1697,7 @@ async function loadPlot(statistic, plotType, parameters = {}) {
 						<div class="font-semibold mb-2">Error:</div>
 						<pre class="whitespace-pre-wrap text-sm font-mono overflow-x-auto">{error}</pre>
 					</div>
-				{:else if plotData}
+				{:else if plotData?.plot_data || plotData?.multiplePlots}
 					<div class="w-full space-y-6">
 						{#if plotData.cache_hit}
 							<div class="flex justify-end mb-2">
@@ -1687,11 +1719,20 @@ async function loadPlot(statistic, plotType, parameters = {}) {
 								</div>
 							{/each}
 						{:else}
-							<!-- Single merged plot -->
-							<div class="w-full rounded-lg border-2 border-border/50 shadow-md overflow-hidden bg-white h-[500px]">
-								<div bind:this={plotDiv} class="w-full h-full"></div>
-							</div>
+							<!-- Single merged plot - use key to force recreation when data changes -->
+							{#key plotData.statistic + plotData.plotType + (plotData.cache_hit || '')}
+								<div class="w-full rounded-lg border-2 border-border/50 shadow-md overflow-hidden bg-white h-[500px]">
+									<div bind:this={plotDiv} class="w-full h-full"></div>
+								</div>
+							{/key}
 						{/if}
+					</div>
+				{:else if plotData && !plotData.plot_data && !plotData.multiplePlots}
+					<div class="text-center py-12">
+						<div class="bg-yellow-50 border border-yellow-300 text-yellow-800 px-4 py-3 rounded-lg inline-block">
+							<div class="font-semibold mb-2">Invalid Plot Data</div>
+							<p class="text-sm">The plot data received is incomplete or invalid.</p>
+						</div>
 					</div>
 				{:else}
 					<div class="text-center py-12">
