@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict
 
 from pypsa_app.backend.cache import cache
-from pypsa_app.backend.celery_app import celery_app
+from pypsa_app.backend.task_queue import task_app
 from pypsa_app.backend.schemas.task import TaskResult
 from pypsa_app.backend.services.map import extract_geographic_layer
 from pypsa_app.backend.services.network import scan_networks
@@ -46,28 +46,28 @@ def _execute_task(self, name: str, func: Callable, **kwargs) -> Dict[str, Any]:
         ).model_dump()
 
 
-@celery_app.task(bind=True, name="tasks.get_statistics")
+@task_app.task(bind=True, name="tasks.get_statistics")
 def get_statistics_task(self, **kwargs):
-    """Celery task for statistics generation"""
+    """Background task for statistics generation"""
     func = cache("statistics", ttl=settings.plot_cache_ttl)(get_statistics_service)
     return _execute_task(self, "Statistics generation", func, **kwargs)
 
 
-@celery_app.task(bind=True, name="tasks.get_plot")
+@task_app.task(bind=True, name="tasks.get_plot")
 def get_plot_task(self, **kwargs):
-    """Celery task for plot generation"""
+    """Background task for plot generation"""
     func = cache("plot", ttl=settings.plot_cache_ttl)(get_plot_service)
     return _execute_task(self, "Plot generation", func, **kwargs)
 
 
-@celery_app.task(bind=True, name="tasks.extract_geographic_layer")
+@task_app.task(bind=True, name="tasks.extract_geographic_layer")
 def extract_geographic_layer_task(self, **kwargs):
-    """Celery task for geographic layer extraction"""
+    """Background task for geographic layer extraction"""
     func = cache("map_data", ttl=settings.map_cache_ttl)(extract_geographic_layer)
     return _execute_task(self, "Geographic layer extraction", func, **kwargs)
 
 
-@celery_app.task(bind=True, name="tasks.scan_networks")
+@task_app.task(bind=True, name="tasks.scan_networks")
 def scan_networks_task(self, **kwargs):
-    """Celery task for network scanning (no caching)"""
+    """Background task for network scanning (no caching)"""
     return _execute_task(self, "Network scan", scan_networks, **kwargs)
