@@ -43,7 +43,12 @@ async function request(endpoint, options = {}, cancellationKey = null) {
 		const response = await fetch(url, config);
 
 		if (!response.ok) {
-			// Handle authentication errors
+			const error = await response.json().catch(() => ({ detail: response.statusText }));
+			const err = new Error(error.detail || `HTTP ${response.status}: ${response.statusText}`);
+			err.status = response.status;
+
+			// Handle authentication errors - but only redirect for 401, not 400
+			// 400 means auth is disabled, 401 means auth is enabled but user not logged in
 			if (response.status === 401 && !endpoint.includes('/auth/')) {
 				// Redirect to login page if not authenticated (except for auth endpoints)
 				if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
@@ -51,9 +56,6 @@ async function request(endpoint, options = {}, cancellationKey = null) {
 				}
 			}
 
-			const error = await response.json().catch(() => ({ detail: response.statusText }));
-			const err = new Error(error.detail || `HTTP ${response.status}: ${response.statusText}`);
-			err.status = response.status;
 			throw err;
 		}
 

@@ -9,6 +9,7 @@ class AuthStore {
 	user = $state(null);
 	loading = $state(true);
 	error = $state(null);
+	authEnabled = $state(null); // null = unknown, true = enabled, false = disabled
 
 	/**
 	 * Initialize auth state by fetching current user
@@ -21,13 +22,21 @@ class AuthStore {
 		try {
 			const response = await auth.me();
 			this.user = response;
+			this.authEnabled = true; // Auth is enabled and user is logged in
 		} catch (err) {
-			// Not logged in or auth is disabled
-			this.user = null;
-			// Don't set error for 401/400, these are expected when not logged in
-			if (err.status && (err.status === 401 || err.status === 400)) {
+			// Check if auth is disabled (400 error)
+			if (err.status === 400) {
+				// Auth is disabled - no login required
+				this.authEnabled = false;
+				this.user = null;
+				this.error = null;
+			} else if (err.status === 401) {
+				// Auth is enabled but user is not logged in
+				this.authEnabled = true;
+				this.user = null;
 				this.error = null;
 			} else {
+				// Other error
 				console.error('Failed to fetch user:', err);
 				this.error = err.message;
 			}

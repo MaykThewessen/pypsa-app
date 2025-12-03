@@ -95,7 +95,6 @@ services:
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-pypsa}:${POSTGRES_PASSWORD:-devpassword}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-pypsa_dev}
       - REDIS_URL=redis://redis:6379/0
-      - DEBUG=true
     volumes:
       - ../src:/app/src
       - ../data:/data

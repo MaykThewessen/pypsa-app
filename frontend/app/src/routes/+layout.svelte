@@ -57,7 +57,7 @@
 		// Note: The API client's automatic 401 redirect skips /auth/ endpoints
 		// to prevent redirect loops, so we handle the redirect manually here
 		const currentPath = $page.url.pathname;
-		if (!authStore.loading && !authStore.isAuthenticated) {
+		if (!authStore.loading && authStore.authEnabled && !authStore.isAuthenticated) {
 			if (currentPath !== '/login') {
 				goto('/login');
 			}
