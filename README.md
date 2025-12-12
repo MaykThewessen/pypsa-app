@@ -3,6 +3,9 @@ Self-hosted web application for analyzing and visualizing PyPSA networks, with m
 architecture designed to extend into workflow execution, network editing, optimization,
 and custom integrations.
 
+> [!NOTE]
+> This prototype is being developed by [@lkstrp](https://github.com/lkstrp/) at the Technical University of Berlin with support of the German Research Organisation (DFG) (grant number [528775426](https://gepris.dfg.de/gepris/projekt/528775426)).
+
 > [!WARNING]
 > This app is in early development. Expect things to not work and break! It is **not** recommended to deploy the app in production!
 
