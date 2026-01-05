@@ -18,7 +18,7 @@ repos:
 
   # Python - Ruff
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.7
+    rev: v0.14.10
     hooks:
       # Run the linter
       - id: ruff
@@ -34,6 +34,6 @@ repos:
 
   # Lint Github Actions
   - repo: https://github.com/rhysd/actionlint
-    rev: v1.7.9
+    rev: v1.7.10
     hooks:
       - id: actionlint
