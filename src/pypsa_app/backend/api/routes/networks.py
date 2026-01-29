@@ -1,7 +1,8 @@
 import logging
+import shutil
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -24,6 +25,50 @@ logger = logging.getLogger(__name__)
 def scan_networks(user: User = Depends(get_current_user)):
     """Scan file system for network files and update database"""
     return queue_task(scan_networks_task, networks_path=str(settings.networks_path))
+
+
+@router.post("/upload", response_model=MessageResponse)
+async def upload_network(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+):
+    """Upload a network file (.nc) to the server"""
+    # Validate file extension
+    if not file.filename.endswith(".nc"):
+        raise HTTPException(
+            status_code=400,
+            detail="Only NetCDF (.nc) files are supported",
+        )
+
+    # Ensure networks directory exists
+    networks_path = Path(settings.networks_path)
+    networks_path.mkdir(parents=True, exist_ok=True)
+
+    # Save file to networks directory
+    file_path = networks_path / file.filename
+
+    # Check if file already exists
+    if file_path.exists():
+        raise HTTPException(
+            status_code=409,
+            detail=f"Network file '{file.filename}' already exists",
+        )
+
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        logger.info(
+            "Uploaded network file",
+            extra={"filename": file.filename, "file_path": str(file_path)},
+        )
+    except Exception as e:
+        logger.error(f"Failed to upload network file: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to upload file: {e}")
+
+    # Trigger a scan to add the new network to the database
+    queue_task(scan_networks_task, networks_path=str(settings.networks_path))
+
+    return {"message": f"Network '{file.filename}' uploaded successfully. Scanning..."}
 
 
 @router.get("/", response_model=NetworkListResponse)

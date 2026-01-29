@@ -28,6 +28,7 @@ dependencies = [
     "authlib",
     "itsdangerous",
     "httpx",
+    "python-multipart",
 ]
 
 [project.optional-dependencies]
