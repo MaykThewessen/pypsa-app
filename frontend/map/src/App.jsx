@@ -163,6 +163,25 @@ function NetworkMap() {
         const keplerConfig = {
           version: 'v1',
           config: {
+            mapStyle: {
+              styleType: 'positron',
+              topLayerGroups: {},
+              visibleLayerGroups: {
+                label: true,
+                road: true,
+                border: true,
+                building: true,
+                water: true,
+                land: true,
+              },
+              mapStyles: {
+                positron: {
+                  id: 'positron',
+                  label: 'CartoDB Positron',
+                  url: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+                },
+              },
+            },
             visState: {
               layers: []
             }
@@ -253,23 +272,6 @@ function NetworkMap() {
           <button onClick={() => window.location.href = backUrl} style={styles.button}>
             Go Back
           </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!mapboxToken) {
-    return (
-      <div style={styles.center}>
-        <div style={styles.warning}>
-          <h2>Mapbox Token Required</h2>
-          <p>To display the network map, configure a Mapbox access token in your environment.</p>
-          <p style={styles.small}>
-            Set <code>MAPBOX_TOKEN</code> environment variable when running the application.
-          </p>
-          <p style={styles.small}>
-            Create a free account and obtain a token at <a href="https://www.mapbox.com/" target="_blank" rel="noopener">mapbox.com</a>
-          </p>
         </div>
       </div>
     );
