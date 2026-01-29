@@ -1,4 +1,5 @@
 import logging
+import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -129,19 +130,22 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("Authentication disabled")
 
-    # Auto-scan networks directory on startup
-    from pypsa_app.backend.services.network import scan_networks
+    # Auto-scan networks directory on startup (non-blocking)
+    def _background_scan():
+        from pypsa_app.backend.services.network import scan_networks
 
-    logger.info("Auto-scanning networks directory on startup")
-    scan_result = scan_networks(settings.networks_path)
-    logger.info(
-        "Network scan complete",
-        extra={
-            "files_found": scan_result.get("files_found", 0),
-            "added": scan_result.get("added", 0),
-            "updated": scan_result.get("updated", 0),
-        },
-    )
+        logger.info("Auto-scanning networks directory in background")
+        scan_result = scan_networks(settings.networks_path)
+        logger.info(
+            "Network scan complete",
+            extra={
+                "files_found": scan_result.get("files_found", 0),
+                "added": scan_result.get("added", 0),
+                "updated": scan_result.get("updated", 0),
+            },
+        )
+
+    threading.Thread(target=_background_scan, daemon=True).start()
 
     yield
 

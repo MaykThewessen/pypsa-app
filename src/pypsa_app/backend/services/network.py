@@ -284,6 +284,15 @@ def load_service(
         return NetworkCollectionService(file_paths, use_cache=use_cache)
 
 
+def _compute_file_hash(file_path: Path) -> str:
+    """Calculate SHA256 hash without loading the PyPSA network."""
+    sha256_hash = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for byte_block in iter(lambda: f.read(4096), b""):
+            sha256_hash.update(byte_block)
+    return sha256_hash.hexdigest()
+
+
 def _process_network_file(
     file_path: Path, existing: Network | None, db
 ) -> tuple[bool, bool, str | None]:
@@ -295,9 +304,9 @@ def _process_network_file(
     try:
         from pypsa_app.backend.services.map import generate_topology_svg
 
-        service = NetworkService(file_path, use_cache=False)
-        file_hash = service.calculate_file_hash()
-        file_size = service.get_file_size()
+        # Fast path: check hash before loading network
+        file_hash = _compute_file_hash(file_path)
+        file_size = file_path.stat().st_size
 
         if existing:
             # Update existing network
@@ -305,8 +314,10 @@ def _process_network_file(
             needs_svg = existing.topology_svg is None
 
             if not (needs_update or needs_svg):
-                del service
                 return False, False, None
+
+            # Only load PyPSA network when needed
+            service = NetworkService(file_path, use_cache=False)
 
             if needs_update:
                 info = service.extract_database_info()
@@ -333,7 +344,8 @@ def _process_network_file(
             return False, needs_update, None
 
         else:
-            # Add new network
+            # Add new network - must load PyPSA network
+            service = NetworkService(file_path, use_cache=False)
             info = service.extract_database_info()
             topology_svg = generate_topology_svg(service.n)
             creation_time = datetime.utcnow().isoformat()
