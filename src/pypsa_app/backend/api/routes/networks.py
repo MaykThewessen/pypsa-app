@@ -1,4 +1,5 @@
 import logging
+import uuid as _uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import or_, select
@@ -25,13 +26,22 @@ from pypsa_app.backend.filters import (
     enum_coercer,
     name_to_id,
 )
-from pypsa_app.backend.models import Network, Permission, User, Visibility
+from pypsa_app.backend.models import (
+    Network,
+    Permission,
+    User,
+    UserRole,
+    Visibility,
+    network_shares,
+)
 from pypsa_app.backend.permissions import has_permission
 from pypsa_app.backend.schemas.common import MessageResponse
 from pypsa_app.backend.schemas.network import (
     ComponentDataResponse,
     NetworkListResponse,
     NetworkResponse,
+    NetworkShareRequest,
+    NetworkShareResponse,
     NetworkUpdate,
     ReportsPayload,
 )
@@ -62,9 +72,13 @@ def list_networks(
 
     visibility_filter = None
     if not has_permission(user, Permission.NETWORKS_MANAGE_ALL):
+        shared_ids = select(network_shares.c.network_id).where(
+            network_shares.c.user_id == user.id
+        )
         visibility_filter = or_(
             Network.user_id == user.id,
             Network.visibility == Visibility.PUBLIC,
+            Network.id.in_(shared_ids),
         )
         query = query.where(visibility_filter)
 
@@ -230,3 +244,109 @@ def delete_network(
     """Delete network from database and (optionally) file system."""
     message = delete_network_and_file(auth.model, db, remove_file=remove_file)
     return {"message": message}
+
+
+# --- User search for sharing (non-admin) ---
+
+
+@router.get("/users/search")
+def search_users(
+    q: str = Query(..., min_length=1, description="Username search query"),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission(Permission.NETWORKS_VIEW)),
+) -> list[dict]:
+    """Search users by username for sharing. Available to all authenticated users."""
+    users = db.scalars(
+        select(User)
+        .where(
+            User.username.ilike(f"%{q}%"),
+            User.role != UserRole.PENDING,
+            User.id != user.id,
+        )
+        .limit(10)
+    ).all()
+    return [
+        {"id": str(u.id), "username": u.username, "avatar_url": u.avatar_url}
+        for u in users
+    ]
+
+
+# --- Sharing endpoints ---
+
+
+@router.get("/{network_id}/shares", response_model=NetworkShareResponse)
+def get_network_shares(
+    auth: Authorized[Network] = Depends(require_network("modify")),
+) -> dict:
+    """Get list of users this network is shared with. Owner (or admin) only."""
+    network = auth.model
+    return {
+        "network_id": network.id,
+        "shared_with": network.shared_with,
+    }
+
+
+@router.post("/{network_id}/shares", response_model=NetworkShareResponse)
+def share_network(
+    body: NetworkShareRequest,
+    auth: Authorized[Network] = Depends(require_network("modify")),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Share a network with another user. Owner (or admin) only."""
+    network = auth.model
+    target_user = db.get(User, body.user_id)
+    if not target_user:
+        raise HTTPException(404, "User not found")
+
+    if target_user.id == auth.user.id:
+        raise HTTPException(400, "Cannot share a network with yourself")
+
+    if target_user in network.shared_with:
+        raise HTTPException(400, "Network is already shared with this user")
+
+    network.shared_with.append(target_user)
+    db.commit()
+    db.refresh(network)
+
+    logger.info(
+        "Network shared",
+        extra={
+            "network_id": str(network.id),
+            "shared_with": target_user.username,
+            "shared_by": auth.user.username,
+        },
+    )
+    return {
+        "network_id": network.id,
+        "shared_with": network.shared_with,
+    }
+
+
+@router.delete("/{network_id}/shares/{user_id}", response_model=NetworkShareResponse)
+def unshare_network(
+    user_id: _uuid.UUID,
+    auth: Authorized[Network] = Depends(require_network("modify")),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Remove a user's access to a shared network. Owner (or admin) only."""
+    network = auth.model
+    target_user = db.get(User, user_id)
+    if not target_user or target_user not in network.shared_with:
+        raise HTTPException(404, "User not found in share list")
+
+    network.shared_with.remove(target_user)
+    db.commit()
+    db.refresh(network)
+
+    logger.info(
+        "Network unshared",
+        extra={
+            "network_id": str(network.id),
+            "unshared_from": target_user.username,
+            "unshared_by": auth.user.username,
+        },
+    )
+    return {
+        "network_id": network.id,
+        "shared_with": network.shared_with,
+    }
