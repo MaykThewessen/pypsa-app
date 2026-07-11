@@ -16,9 +16,12 @@ from pypsa_app.backend.__version__ import __description__, __version__
 from pypsa_app.backend.alembic import run_migrations
 from pypsa_app.backend.api.routes import (
     admin,
+    analysis,
     api_keys,
     auth,
     cache,
+    components,
+    map,
     networks,
     networks_remote,
     plots,
@@ -27,6 +30,7 @@ from pypsa_app.backend.api.routes import (
     statistics,
     tasks,
     version,
+    views,
 )
 from pypsa_app.backend.auth import session
 from pypsa_app.backend.auth.authenticate import (
@@ -327,12 +331,22 @@ if not settings.demo_mode:
         prefix=f"{API_V1_PREFIX}/networks",
         tags=["networks"],
     )
+app.include_router(
+    components.router, prefix=f"{API_V1_PREFIX}/networks", tags=["networks"]
+)
+app.include_router(map.router, prefix=f"{API_V1_PREFIX}/networks", tags=["map"])
 app.include_router(plots.router, prefix=f"{API_V1_PREFIX}/plots", tags=["plots"])
 app.include_router(
     statistics.router,
     prefix=f"{API_V1_PREFIX}/statistics",
     tags=["statistics"],
 )
+app.include_router(
+    analysis.router,
+    prefix=f"{API_V1_PREFIX}/analysis",
+    tags=["analysis"],
+)
+app.include_router(views.router, prefix=f"{API_V1_PREFIX}/views", tags=["views"])
 app.include_router(cache.router, prefix=f"{API_V1_PREFIX}/cache", tags=["cache"])
 app.include_router(version.router, prefix=f"{API_V1_PREFIX}/version", tags=["version"])
 app.include_router(tasks.router, prefix=f"{API_V1_PREFIX}/tasks", tags=["tasks"])
