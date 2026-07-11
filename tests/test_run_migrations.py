@@ -1,14 +1,29 @@
 """Tests for the run_migrations helper (newer-DB guard, version stamping)."""
 
+from pathlib import Path
+
 import pytest
 import sqlalchemy as sa
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy.engine import Engine
 
+import pypsa_app.backend.alembic
 from pypsa_app import __version__
 from pypsa_app.backend.alembic import (
     DatabaseVersionMismatchError,
     run_migrations,
 )
+
+
+def _head_revision() -> str:
+    cfg = Config()
+    cfg.set_main_option(
+        "script_location", str(Path(pypsa_app.backend.alembic.__file__).parent)
+    )
+    head = ScriptDirectory.from_config(cfg).get_current_head()
+    assert head is not None
+    return head
 
 
 def test_run_migrations_upgrades_fresh_db_and_stamps_version(
@@ -24,7 +39,7 @@ def test_run_migrations_upgrades_fresh_db_and_stamps_version(
             sa.text("SELECT id, last_app_version FROM app_info WHERE id = 1")
         ).one()
 
-    assert version == "0006"
+    assert version == _head_revision()
     assert app_row.id == 1
     assert app_row.last_app_version == __version__
 
